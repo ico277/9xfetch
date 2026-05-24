@@ -1,5 +1,7 @@
-#include <windows.h>
 #include <stdio.h>
+#include <stddef.h>
+
+#include <windows.h>
 
 #include "9xfetch.h"
 
@@ -15,7 +17,7 @@ int main() {
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 
     char buffer[1024];
-    DWORD size = 1024;
+    size_t size = 1024;
     DWORD version[3];
     
     DWORD returnvalue;

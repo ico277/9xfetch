@@ -1,18 +1,21 @@
+#include <stdio.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
+
 #include <windows.h>
 #include <intrin.h>
-#include <stdio.h>
-#include <string.h>
 
 // OS info
 
-WINBOOL get_kernel_version(DWORD* version) {
+bool get_kernel_version(DWORD* version) {
     OSVERSIONINFOA os_version_info;
     ZeroMemory(&os_version_info, sizeof(OSVERSIONINFOA));
     // has to be set before calling GetVersionExA
     os_version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
 
     if (!GetVersionExA(&os_version_info)) {
-        return FALSE;
+        return false;
     }
 
     // dangerous assumption of size, should be handled better
@@ -20,10 +23,10 @@ WINBOOL get_kernel_version(DWORD* version) {
     version[1] = os_version_info.dwMinorVersion;
     version[2] = os_version_info.dwPlatformId;
 
-    return TRUE;
+    return true;
 }
 
-DWORD get_os_name(char* buffer, DWORD buffer_size, DWORD* version) {
+size_t get_os_name(char* buffer, size_t buffer_size, DWORD* version) {
     /* combine both versions into a singular DWORD
        windows major and minor versions are never too big for it to be a problem
        that they're squished into 16 bits */
@@ -94,7 +97,7 @@ DWORD get_os_name(char* buffer, DWORD buffer_size, DWORD* version) {
     return strnlen(buffer, buffer_size);
 }
 
-DWORD get_user_name(char* buffer, DWORD buffer_size) {
+size_t get_user_name(char* buffer, size_t buffer_size) {
     DWORD chars_read = buffer_size;
 
     if (!GetUserNameA(buffer, &chars_read)) {
@@ -104,7 +107,7 @@ DWORD get_user_name(char* buffer, DWORD buffer_size) {
     return chars_read;
 }
 
-DWORD get_host_name(char* buffer, DWORD buffer_size) {
+size_t get_host_name(char* buffer, size_t buffer_size) {
     DWORD chars_read = buffer_size;
 
     if (!GetComputerNameA(buffer, &chars_read)) {
@@ -116,7 +119,7 @@ DWORD get_host_name(char* buffer, DWORD buffer_size) {
 
 // HW info
 
-WINBOOL get_cpu_name(char* buffer, DWORD buffer_size) {
+bool get_cpu_name(char* buffer, size_t buffer_size) {
     int cpuid_value[4] = {0, 0, 0, 0};
     char vendor[13];
     char cpu_name[49];
@@ -131,7 +134,7 @@ WINBOOL get_cpu_name(char* buffer, DWORD buffer_size) {
     __cpuid(cpuid_value, 0x80000000);
     if (cpuid_value[0] < 0x80000004) {
         strncpy(buffer, "Unknown CPU", buffer_size);
-        return FALSE;
+        return false;
     }
     
     __cpuid(cpuid_value, 0x80000002); // first 16 bytes
@@ -144,10 +147,10 @@ WINBOOL get_cpu_name(char* buffer, DWORD buffer_size) {
 
     snprintf(buffer, buffer_size, "%s %s", vendor, cpu_name);
 
-    return TRUE;
+    return true;
 }
 
-WINBOOL get_gpu_name(char* buffer, DWORD buffer_size) {
+bool get_gpu_name(char* buffer, size_t buffer_size) {
     DISPLAY_DEVICEA display_device;
     ZeroMemory(&display_device, sizeof(display_device));
     display_device.cb = sizeof(display_device);
@@ -158,7 +161,7 @@ WINBOOL get_gpu_name(char* buffer, DWORD buffer_size) {
         // check if primary display device
         if (display_device.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) {
             strncpy(buffer, display_device.DeviceString, buffer_size);
-            return TRUE;
+            return true;
         }
         i++;
     }
@@ -168,7 +171,7 @@ WINBOOL get_gpu_name(char* buffer, DWORD buffer_size) {
 
 // Returns garbage on 64bit systems with more than 4GB RAM
 // TODO use GetProcAddress to fix it for modern systems
-WINBOOL get_memory_usage(char* buffer, DWORD buffer_size) {
+bool get_memory_usage(char* buffer, size_t buffer_size) {
     MEMORYSTATUS memory;
     memory.dwLength = sizeof(memory);
 
@@ -176,5 +179,5 @@ WINBOOL get_memory_usage(char* buffer, DWORD buffer_size) {
 
     snprintf(buffer, buffer_size, "%lu MB/%lu MB", (memory.dwTotalPhys - memory.dwAvailPhys) / (1024 * 1024),  memory.dwTotalPhys / (1024 * 1024));
 
-    return TRUE;
+    return true;
 }
