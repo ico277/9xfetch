@@ -6,7 +6,7 @@ CC      = wine $(MINGW_DIR)/bin/i686-w64-mingw32-gcc.exe
 CFLAGS  = -std=gnu99 -O2 -Wall -Wl,--subsystem,console:4.10
 LDFLAGS = -static -static-libgcc
 
-TARGET  = test.exe
+TARGET  = 9xfetch.exe
 SRCS    = $(wildcard src/*.c)
 OBJS    = $(SRCS:.c=.o)
 

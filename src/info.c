@@ -47,6 +47,7 @@ DWORD get_os_name(char* buffer, DWORD buffer_size, DWORD* version) {
         }
     } 
     // Windows NT systems (this may not report correctly on anything above windows 8)
+    // TODO use GetProcAddress to fix it for modern systems
     else {
         switch (combined) {
             case (3 << 16) | 1:
@@ -126,6 +127,7 @@ WINBOOL get_cpu_name(char* buffer, DWORD buffer_size) {
     memcpy(vendor + 8, &cpuid_value[2], 4); // ECX
     vendor[12] = '\0';
 
+    //TODO add manual Pentium CPU detection
     __cpuid(cpuid_value, 0x80000000);
     if (cpuid_value[0] < 0x80000004) {
         strncpy(buffer, "Unknown CPU", buffer_size);
@@ -165,6 +167,7 @@ WINBOOL get_gpu_name(char* buffer, DWORD buffer_size) {
 }
 
 // Returns garbage on 64bit systems with more than 4GB RAM
+// TODO use GetProcAddress to fix it for modern systems
 WINBOOL get_memory_usage(char* buffer, DWORD buffer_size) {
     MEMORYSTATUS memory;
     memory.dwLength = sizeof(memory);
