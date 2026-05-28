@@ -18,23 +18,26 @@ int main() {
 
     char buffer[1024];
     size_t size = 1024;
-    DWORD version[3];
+    os_version_t version;
+    memory_info_t meminfo;
     
-    DWORD returnvalue;
+    size_t returnvalue;
     returnvalue = get_user_name(buffer, size);
     printf("Username: %s\n", buffer);
     returnvalue = get_host_name(buffer, size);
     printf("Hostname: %s\n", buffer);
-    returnvalue = get_kernel_version(version);
-    printf("Kernel version: %lu.%lu (%lu)\n", version[0], version[1], version[2]);
-    returnvalue = get_os_name(buffer, size, version);
+    returnvalue = get_kernel_version(&version);
+    printf("Kernel version: %lu.%lu.%lu (%lu)\n", version.major_version, version.minor_version, version.build_number, version.platform_id);
+    returnvalue = get_os_name(buffer, size, &version);
     printf("OS: %s\n", buffer);
+    returnvalue = get_uptime_ms();
+    printf("Uptime: %ds\n", returnvalue / 1000);
     returnvalue = get_cpu_name(buffer, size);
     printf("CPU: %s\n", buffer);
     returnvalue = get_gpu_name(buffer, size);
     printf("GPU: %s\n", buffer);
-    returnvalue = get_memory_usage(buffer, size);
-    printf("Memory: %s\n", buffer);
+    get_memory_usage(&meminfo);
+    printf("Memory: %luMB/%luMB\n", meminfo.mem_used_kib / 1024, meminfo.mem_total_kib / 1024);
 
     system("pause");
     return 0;

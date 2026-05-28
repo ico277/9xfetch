@@ -5,35 +5,60 @@
 
 #include <windows.h>
 #include <intrin.h>
+#include <winternl.h>
+
+#include "9xfetch.h"
 
 // OS info
 
-bool get_kernel_version(DWORD* version) {
-    OSVERSIONINFOA os_version_info;
-    ZeroMemory(&os_version_info, sizeof(OSVERSIONINFOA));
-    // has to be set before calling GetVersionExA
-    os_version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
+typedef NTSTATUS (WINAPI *RtlGetVersion_t)(LPOSVERSIONINFOEXW);
 
-    if (!GetVersionExA(&os_version_info)) {
+bool get_kernel_version(os_version_t* version) {
+    // Use RtlGetVersion if on a newer NT system
+    HMODULE hmodule = GetModuleHandleW(L"ntdll.dll");
+    if (hmodule) {
+        RtlGetVersion_t RtlGetVersion_func = (RtlGetVersion_t)GetProcAddress(hmodule, "RtlGetVersion");
+        if(!RtlGetVersion_func) {
+            FreeLibrary(hmodule);
+            return false;
+        }
+        OSVERSIONINFOEXW os_version_info_ex = {0};
+        os_version_info_ex.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+        if (RtlGetVersion_func(&os_version_info_ex) == 0) {
+            version->major_version = os_version_info_ex.dwMajorVersion;
+            version->minor_version = os_version_info_ex.dwMinorVersion;
+            version->build_number = os_version_info_ex.dwBuildNumber;
+            version->platform_id = os_version_info_ex.dwPlatformId;
+            FreeLibrary(hmodule);
+            return true;
+        }
+        FreeLibrary(hmodule);
         return false;
     }
-
-    // dangerous assumption of size, should be handled better
-    version[0] = os_version_info.dwMajorVersion;
-    version[1] = os_version_info.dwMinorVersion;
-    version[2] = os_version_info.dwPlatformId;
-
-    return true;
+    // otherwise default to GetVersionExA
+    else {
+        OSVERSIONINFOA os_version_info_a = {0};
+        os_version_info_a.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
+        if(GetVersionExA(&os_version_info_a)) {
+            // dangerous assumption of size, should be handled better
+            version->major_version = os_version_info_a.dwMajorVersion;
+            version->minor_version = os_version_info_a.dwMinorVersion;
+            version->build_number = os_version_info_a.dwBuildNumber;
+            version->platform_id = os_version_info_a.dwPlatformId;
+            return true;
+        }
+        return false;
+    }
 }
 
-size_t get_os_name(char* buffer, size_t buffer_size, DWORD* version) {
+size_t get_os_name(char* buffer, size_t buffer_size, os_version_t* version) {
     /* combine both versions into a singular DWORD
        windows major and minor versions are never too big for it to be a problem
        that they're squished into 16 bits */
-    DWORD combined = (version[0] << 16) | version[1];
+    DWORD combined = (version->major_version << 16) | version->minor_version;
     char* str = NULL;
     // Windows 9X systems
-    if (version[2] != VER_PLATFORM_WIN32_NT) {
+    if (version->platform_id != VER_PLATFORM_WIN32_NT) {
         switch (combined) {
             case (4 << 16) | 0:
                 str = "Windows 95";
@@ -49,8 +74,7 @@ size_t get_os_name(char* buffer, size_t buffer_size, DWORD* version) {
                 break;
         }
     } 
-    // Windows NT systems (this may not report correctly on anything above windows 8)
-    // TODO use GetProcAddress to fix it for modern systems
+    // Windows NT systems
     else {
         switch (combined) {
             case (3 << 16) | 1:
@@ -85,7 +109,10 @@ size_t get_os_name(char* buffer, size_t buffer_size, DWORD* version) {
                 str = "Windows 8.1";
                 break;
             case (10 << 16) | 0:
-                str = "Windows 10/11";
+                if (version->build_number >= 20000)
+                    str = "Windows 11";
+                else
+                    str = "Windows 10";
                 break;
             default:
                 str = "Unknown NT";
@@ -115,6 +142,11 @@ size_t get_host_name(char* buffer, size_t buffer_size) {
     }
 
     return chars_read;
+}
+
+// TODO find a way to make it not break after like 50ish days
+DWORD get_uptime_ms() {
+    return GetTickCount();
 }
 
 // HW info
@@ -151,8 +183,7 @@ bool get_cpu_name(char* buffer, size_t buffer_size) {
 }
 
 bool get_gpu_name(char* buffer, size_t buffer_size) {
-    DISPLAY_DEVICEA display_device;
-    ZeroMemory(&display_device, sizeof(display_device));
+    DISPLAY_DEVICEA display_device = {0};
     display_device.cb = sizeof(display_device);
 
     DWORD i = 0;
@@ -169,15 +200,34 @@ bool get_gpu_name(char* buffer, size_t buffer_size) {
     return 0;
 }
 
-// Returns garbage on 64bit systems with more than 4GB RAM
-// TODO use GetProcAddress to fix it for modern systems
-bool get_memory_usage(char* buffer, size_t buffer_size) {
-    MEMORYSTATUS memory;
-    memory.dwLength = sizeof(memory);
 
-    GlobalMemoryStatus(&memory);
+typedef BOOL (WINAPI *GlobalMemoryStatusEx_t)(LPMEMORYSTATUSEX);
 
-    snprintf(buffer, buffer_size, "%lu MB/%lu MB", (memory.dwTotalPhys - memory.dwAvailPhys) / (1024 * 1024),  memory.dwTotalPhys / (1024 * 1024));
+void get_memory_usage(memory_info_t* meminfo) {
+    HMODULE hmodule = GetModuleHandleW(L"kernel32.dll");
+    if (hmodule) {
+        // check if the newer GlobalMemoryStatusEx function is available
+        GlobalMemoryStatusEx_t GlobalMemoryStatusEx_func = (GlobalMemoryStatusEx_t)GetProcAddress(hmodule, "GlobalMemoryStatusEx");
+        if (GlobalMemoryStatusEx_func) {
+            MEMORYSTATUSEX memory_status = {0};
+            memory_status.dwLength = sizeof(MEMORYSTATUSEX);
+            if (GlobalMemoryStatusEx(&memory_status)) {
+                meminfo->mem_total_kib = memory_status.ullTotalPhys / 1024;
+                meminfo->mem_used_kib = (memory_status.ullTotalPhys - memory_status.ullAvailPhys) / 1024;
+                goto exit;
+            }
+        }
+    }
 
-    return true;
+    // otherwise use the old GlobalMemoryStatus function
+    MEMORYSTATUS memory_status;
+    memory_status.dwLength = sizeof(MEMORYSTATUS);
+
+    GlobalMemoryStatus(&memory_status);
+    
+    meminfo->mem_total_kib = memory_status.dwTotalPhys / 1024;
+    meminfo->mem_used_kib = (memory_status.dwTotalPhys - memory_status.dwAvailPhys) / 1024;
+exit:
+    if (hmodule) FreeModule(hmodule);
+    return;
 }
