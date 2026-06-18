@@ -7,7 +7,7 @@
 #include <intrin.h>
 #include <winternl.h>
 
-#include "9xfetch.h"
+#include "../9xfetch.h"
 
 // OS info
 
@@ -140,8 +140,8 @@ size_t get_host_name(char* buffer, size_t buffer_size) {
 }
 
 // TODO find a way to make it not break after like 50ish days
-DWORD get_uptime_ms() {
-    return GetTickCount();
+size_t get_uptime_ms() {
+    return (size_t) GetTickCount();
 }
 
 // HW info

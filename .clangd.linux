@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [
+    "-D_9XFETCH_BACKEND_LINUX",
+    "-std=gnu99",
+  ]

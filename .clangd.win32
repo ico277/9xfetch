@@ -4,6 +4,7 @@ CompileFlags:
     "-m32",
     "-D_WIN32",
     "-D_X86_",
+    "-D_9XFETCH_BACKEND_WIN32",
     "-std=gnu99",
     "-isystem", "./mingw32/i686-w64-mingw32/include",
     "-isystem", "./mingw32/lib/gcc/i686-w64-mingw32/4.7.0/include"
