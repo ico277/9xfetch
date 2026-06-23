@@ -1,11 +1,11 @@
 #include <stdbool.h>
-
 #include <stddef.h>
 
 #if defined(_9XFETCH_BACKEND_WIN32)
 #include <windows.h>
 #elif defined(_9XFETCH_BACKEND_LINUX)
 #include <sys/utsname.h>
+#include <sys/sysinfo.h>
 #endif
 
 typedef struct {
@@ -31,11 +31,14 @@ typedef struct {
     DWORD win32_build_number;
     DWORD win32_platform_id;
 #elif defined(_9XFETCH_BACKEND_LINUX)
+    char line_buf[1024];
     struct utsname* uts_info;
+    struct sysinfo* sys_info;
+    struct passwd* passwd;
 #endif
 } instance_9x;
 
-
+instance_9x* init_instance_9x(instance_9x* instance);
 bool get_kernel_version(instance_9x* instance);
 bool get_os_name(instance_9x* instance);
 bool get_user_name(instance_9x* instance);

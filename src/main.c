@@ -15,7 +15,8 @@ int main() {
     
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 #endif
-    instance_9x instance = {0};
+    instance_9x instance;
+    init_instance_9x(&instance);
     
     bool returnvalue;
     returnvalue = get_user_name(&instance);
@@ -30,8 +31,10 @@ int main() {
     printf("Uptime: %lus\n", instance.uptime_ms / 1000);
     get_cpu_name(&instance);
     printf("CPU: %s %s\n", instance.cpu_vendor, instance.cpu_brand);
-    //returnvalue = get_gpu_name(&instance);
-    //printf("GPU: %s\n", instance.gpu_names[0]);
+    returnvalue = get_gpu_name(&instance);
+    for (size_t i = 0; i < instance.gpu_count; i++) {
+        printf("GPU: %s\n", instance.gpu_names[i]);
+    }
     get_memory_usage(&instance);
     printf("Memory: %luMiB/%luMiB\n", instance.memory_used_kib / 1024, instance.memory_total_kib / 1024);
 
